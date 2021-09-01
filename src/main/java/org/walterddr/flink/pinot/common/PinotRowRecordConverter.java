@@ -18,21 +18,43 @@
 
 package org.walterddr.flink.pinot.common;
 
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
 import org.apache.pinot.spi.data.readers.GenericRow;
+
+import java.util.Map;
 
 /**
  * Converts {@link Row} type data into {@link GenericRow} format.
  */
 public class PinotRowRecordConverter implements RecordConverter<Row>  {
 
+    private final RowTypeInfo rowTypeInfo;
+    private final String[] fieldNames;
+    private final TypeInformation<?>[] fieldTypes;
+
+    public PinotRowRecordConverter(RowTypeInfo rowTypeInfo) {
+        this.rowTypeInfo = rowTypeInfo;
+        this.fieldNames = rowTypeInfo.getFieldNames();
+        this.fieldTypes = rowTypeInfo.getFieldTypes();
+    }
+
     @Override
     public GenericRow convertToRow(Row value) {
-        return null;
+        GenericRow row = new GenericRow();
+        for (int i=0; i<value.getArity(); i++) {
+            row.putValue(fieldNames[i], value.getField(i));
+        }
+        return row;
     }
 
     @Override
     public Row convertFromRow(GenericRow row) {
-        return null;
+        Row value = new Row(fieldNames.length);
+        for (Map.Entry<String, Object> e : row.getFieldToValueMap().entrySet()) {
+            value.setField(rowTypeInfo.getFieldIndex(e.getKey()), e.getValue());
+        }
+        return value;
     }
 }

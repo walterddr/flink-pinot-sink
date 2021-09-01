@@ -80,6 +80,27 @@
             <artifactId>pinot-segment-writer-file-based</artifactId>
             <version>${pinot.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.pinot</groupId>
+            <artifactId>pinot-segment-uploader-default</artifactId>
+            <version>${pinot.version}</version>
+        </dependency>
+
+        <!-- Test Dependencies -->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients_${scala.version}</artifactId>
+            <version>${flink.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pinot</groupId>
+            <artifactId>pinot-integration-tests</artifactId>
+            <version>${pinot.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -20,25 +20,29 @@ package org.walterddr.flink.pinot.common;
 
 import org.apache.pinot.spi.data.readers.GenericRow;
 
+import java.io.Serializable;
+
 /**
  * Record converter that converts sink input format into
  * Pinot {@link GenericRow}.
  *
  * @param <T> supported sink input format.
  */
-public interface RecordConverter<T> {
+public interface RecordConverter<T> extends Serializable {
 
     /**
+     * Convert a flink generic type data content to Pinot segment table row.
      *
-     * @param value
-     * @return
+     * @param value flink type data content
+     * @return pinot row
      */
     GenericRow convertToRow(T value);
 
     /**
+     * Convert a Pinot segment table row to flink generic type data content.
      *
-     * @param row
-     * @return
+     * @param row pinot row
+     * @return flink type data content
      */
     T convertFromRow(GenericRow row);
 }

@@ -65,6 +65,8 @@ public class FlinkSegmentWriter implements SegmentWriter {
     private static final Logger LOGGER = LoggerFactory.getLogger(org.apache.pinot.plugin.segmentwriter.filebased.FileBasedSegmentWriter.class);
     private static final FileFormat BUFFER_FILE_FORMAT = FileFormat.AVRO;
 
+    private final int indexOfSubtask;
+
     private TableConfig _tableConfig;
     private String _tableNameWithType;
     private BatchIngestionConfig _batchIngestionConfig;
@@ -80,6 +82,10 @@ public class FlinkSegmentWriter implements SegmentWriter {
     private org.apache.avro.Schema _avroSchema;
     private DataFileWriter<GenericData.Record> _recordWriter;
     private GenericData.Record _reusableRecord;
+
+    public FlinkSegmentWriter(int indexOfSubtask) {
+        this.indexOfSubtask = indexOfSubtask;
+    }
 
     @Override
     public void init(TableConfig tableConfig, Schema schema)
@@ -111,7 +117,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
 
         // Create tmp dir
         _stagingDir = new File(FileUtils.getTempDirectory(),
-                String.format("segment_writer_staging_%s_%d", _tableNameWithType, System.currentTimeMillis()));
+                String.format("segment_writer_staging_%s_%d_%d", _tableNameWithType, indexOfSubtask, System.currentTimeMillis()));
         Preconditions.checkState(_stagingDir.mkdirs(), "Failed to create staging dir: %s", _stagingDir.getAbsolutePath());
 
         // Create buffer file

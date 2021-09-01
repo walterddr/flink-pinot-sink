@@ -21,6 +21,7 @@ package org.walterddr.flink.pinot.common;
 import org.apache.flink.configuration.Configuration;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
+import org.apache.pinot.spi.config.table.ingestion.IngestionConfig;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.utils.builder.TableConfigBuilder;
 
@@ -28,8 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
 
-import static org.apache.pinot.spi.config.table.TableConfig.TABLE_NAME_KEY;
-import static org.apache.pinot.spi.config.table.TableConfig.TABLE_TYPE_KEY;
+import static org.apache.pinot.spi.config.table.TableConfig.*;
 
 public final class PinotTableUtils {
 
@@ -46,6 +46,7 @@ public final class PinotTableUtils {
     public static TableConfig constructTableConfig(Properties props, Configuration parameters) {
         return new TableConfigBuilder(TableType.valueOf(props.getProperty(TABLE_TYPE_KEY)))
                 .setTableName(props.getProperty(TABLE_NAME_KEY))
+                .setIngestionConfig((IngestionConfig)props.get(INGESTION_CONFIG_KEY))
                 .build();
     }
 

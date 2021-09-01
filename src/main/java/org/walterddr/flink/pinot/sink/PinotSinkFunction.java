@@ -23,14 +23,17 @@ import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+import org.apache.pinot.plugin.segmentuploader.SegmentUploaderDefault;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.data.Schema;
+import org.apache.pinot.spi.ingestion.segment.uploader.SegmentUploader;
 import org.apache.pinot.spi.ingestion.segment.writer.SegmentWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.walterddr.flink.pinot.common.RecordConverter;
 import org.walterddr.flink.pinot.common.PinotTableUtils;
 
+import java.net.URI;
 import java.util.Properties;
 
 
@@ -52,25 +55,28 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
     private static final Logger LOG = LoggerFactory.getLogger(PinotSinkFunction.class);
 
     private final RecordConverter<T> recordConverter;
-    private final Properties props;
+
+    private TableConfig tableConfig;
+    private Schema schema;
 
     private transient SegmentWriter _segmentWriter;
-    private TableConfig _tableConfig;
-    private Schema _schema;
+    private transient SegmentUploader _segmentUploader;
 
     public PinotSinkFunction(
             RecordConverter<T> recordConverter,
-            Properties props) {
+            TableConfig tableConfig,
+            Schema schema) {
         this.recordConverter = recordConverter;
-        this.props = props;
+        this.tableConfig = tableConfig;
+        this.schema = schema;
     }
 
     @Override
     public void open(Configuration parameters) throws Exception {
-        _tableConfig = PinotTableUtils.constructTableConfig(props, parameters);
-        _schema = PinotTableUtils.constructSchema(props, parameters);
-        _segmentWriter = new FlinkSegmentWriter();
-        _segmentWriter.init(_tableConfig, _schema);
+        _segmentWriter = new FlinkSegmentWriter(this.getRuntimeContext().getIndexOfThisSubtask());
+        _segmentWriter.init(tableConfig, schema);
+        _segmentUploader = new SegmentUploaderDefault();
+        _segmentUploader.init(tableConfig);
     }
 
     @Override
@@ -85,7 +91,8 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
 
     @Override
     public void snapshotState(FunctionSnapshotContext functionSnapshotContext) throws Exception {
-        _segmentWriter.flush();
+        URI segmentURI = _segmentWriter.flush();
+        _segmentUploader.uploadSegment(segmentURI, null);
     }
 
     @Override
