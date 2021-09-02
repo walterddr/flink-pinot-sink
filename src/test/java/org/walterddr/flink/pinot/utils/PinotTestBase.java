@@ -27,8 +27,8 @@ public class PinotTestBase extends BaseClusterIntegrationTest {
     static {
         testData.add(Row.of(1, 1L, "Hi"));
         testData.add(Row.of(2, 2L, "Hello"));
-        testData.add(Row.of(3, 2L, "Hello world"));
-        testData.add(Row.of(3, 3L, "Hello world!"));
+        testData.add(Row.of(3, 3L, "Hello world"));
+        testData.add(Row.of(3, 4L, "Hello world!"));
     }
 
 }

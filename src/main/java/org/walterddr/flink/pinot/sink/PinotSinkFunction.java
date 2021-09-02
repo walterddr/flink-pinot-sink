@@ -81,6 +81,7 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
 
     @Override
     public void close() throws Exception {
+        flush();
         _segmentWriter.close();
     }
 
@@ -91,12 +92,20 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
 
     @Override
     public void snapshotState(FunctionSnapshotContext functionSnapshotContext) throws Exception {
-        URI segmentURI = _segmentWriter.flush();
-        _segmentUploader.uploadSegment(segmentURI, null);
+        // clear and flush.
+        flush();
+        // snapshot state
+        // ...
     }
 
     @Override
     public void initializeState(FunctionInitializationContext functionInitializationContext) throws Exception {
         // no initialization needed
+        // ...
+    }
+
+    private void flush() throws Exception {
+        URI segmentURI = _segmentWriter.flush();
+        _segmentUploader.uploadSegment(segmentURI, null);
     }
 }
