@@ -91,7 +91,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
     public void init(TableConfig tableConfig, Schema schema)
             throws Exception {
         _tableConfig = tableConfig;
-        _tableNameWithType = _tableConfig.getTableName();
+        _tableNameWithType = _tableConfig.getTableName() + "_" + indexOfSubtask;
 
         Preconditions.checkState(
                 _tableConfig.getIngestionConfig() != null && _tableConfig.getIngestionConfig().getBatchIngestionConfig() != null
@@ -117,7 +117,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
 
         // Create tmp dir
         _stagingDir = new File(FileUtils.getTempDirectory(),
-                String.format("segment_writer_staging_%s_%d_%d", _tableNameWithType, indexOfSubtask, System.currentTimeMillis()));
+                String.format("segment_writer_staging_%s_%d", _tableNameWithType, System.currentTimeMillis()));
         Preconditions.checkState(_stagingDir.mkdirs(), "Failed to create staging dir: %s", _stagingDir.getAbsolutePath());
 
         // Create buffer file
@@ -190,10 +190,11 @@ public class FlinkSegmentWriter implements SegmentWriter {
             LOGGER.info("Successfully built segment: {} for table: {}", segmentName, _tableNameWithType);
 
             // Tar segment
-            File segmentTarFile = new File(_outputDirURI, segmentName + Constants.TAR_GZ_FILE_EXT);
+            File segmentTarFile = new File(_outputDirURI,
+                    String.format("%s_%d%s", segmentName, indexOfSubtask, Constants.TAR_GZ_FILE_EXT));
             if (!_batchConfig.isOverwriteOutput() && segmentTarFile.exists()) {
                 segmentTarFile = new File(_outputDirURI,
-                        String.format("%s_%d%s", segmentName, System.currentTimeMillis(), Constants.TAR_GZ_FILE_EXT));
+                        String.format("%s_%d_%d%s", segmentName, indexOfSubtask, System.currentTimeMillis(), Constants.TAR_GZ_FILE_EXT));
             }
             TarGzCompressionUtils.createTarGzFile(new File(segmentDir, segmentName), segmentTarFile);
             LOGGER.info("Created segment tar: {} for segment: {} of table: {}", segmentTarFile.getAbsolutePath(), segmentName,

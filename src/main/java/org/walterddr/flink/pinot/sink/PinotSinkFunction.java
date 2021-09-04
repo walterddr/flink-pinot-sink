@@ -73,15 +73,22 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
 
     @Override
     public void open(Configuration parameters) throws Exception {
+        // TODO improve segment uploader to use in-memory buffer / tar
         _segmentWriter = new FlinkSegmentWriter(this.getRuntimeContext().getIndexOfThisSubtask());
         _segmentWriter.init(tableConfig, schema);
+        // TODO improve segment uploader to take in-memory tar
+        // TODO launch segment uploader as separate thread for uploading (non-blocking?)
         _segmentUploader = new SegmentUploaderDefault();
         _segmentUploader.init(tableConfig);
     }
 
     @Override
     public void close() throws Exception {
-        flush();
+        try {
+            flush();
+        } catch (Exception e) {
+            LOG.error("Error when closing Pinot sink", e);
+        }
         _segmentWriter.close();
     }
 
@@ -94,7 +101,10 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
     public void snapshotState(FunctionSnapshotContext functionSnapshotContext) throws Exception {
         // clear and flush.
         flush();
-        // snapshot state
+        // snapshot state:
+        // 1. should only work on the boundary of segment uploader.
+        // 2. segmentwriter state should be preserved.
+        // 3.
         // ...
     }
 

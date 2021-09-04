@@ -98,6 +98,23 @@ public class PinotSinkITCase extends PinotTestBase {
         Assert.assertEquals(getNumDocsInLatestSegment(), 4);
     }
 
+    @Test
+    public void testPinotSinkParallelWrite() throws Exception {
+        StreamExecutionEnvironment execEnv = StreamExecutionEnvironment.getExecutionEnvironment();
+        execEnv.setParallelism(2);
+        DataStream<Row> srcDs = execEnv.fromCollection(testData).returns(testTypeInfo);
+
+        TableConfig tableConfig = createOfflineTableConfig();
+        addTableConfig(tableConfig);
+        srcDs.addSink(new PinotSinkFunction<>(
+                new PinotRowRecordConverter(testTypeInfo),
+                tableConfig,
+                schema
+        ));
+        execEnv.execute();
+        Assert.assertEquals(getNumSegments(), 2);
+    }
+
     private int getNumSegments()
             throws IOException {
         String tableNameWithType = TableNameBuilder.forType(TableType.OFFLINE).tableNameWithType(getTableName());
