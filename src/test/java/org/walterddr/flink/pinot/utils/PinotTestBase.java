@@ -22,13 +22,16 @@ public class PinotTestBase extends BaseClusterIntegrationTest {
             .addSingleValueDimension("a", FieldSpec.DataType.INT)
             .addSingleValueDimension("b", FieldSpec.DataType.LONG)
             .addSingleValueDimension("c", FieldSpec.DataType.STRING)
+            .setPrimaryKeyColumns(List.of("a"))
             .build();
 
     static {
         testData.add(Row.of(1, 1L, "Hi"));
         testData.add(Row.of(2, 2L, "Hello"));
         testData.add(Row.of(3, 3L, "Hello world"));
-        testData.add(Row.of(3, 4L, "Hello world!"));
+        testData.add(Row.of(4, 4L, "Hello world!"));
+        testData.add(Row.of(5, 4L, "HelloWorld"));
+        testData.add(Row.of(6, 5L, "Hello!world!"));
     }
 
 }

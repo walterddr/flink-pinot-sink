@@ -18,12 +18,12 @@
 
 package org.walterddr.flink.pinot.sink;
 
+import java.net.URI;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
-import org.apache.pinot.plugin.segmentuploader.SegmentUploaderDefault;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.ingestion.segment.uploader.SegmentUploader;
@@ -31,10 +31,6 @@ import org.apache.pinot.spi.ingestion.segment.writer.SegmentWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.walterddr.flink.pinot.common.RecordConverter;
-import org.walterddr.flink.pinot.common.PinotTableUtils;
-
-import java.net.URI;
-import java.util.Properties;
 
 
 /**
@@ -73,12 +69,13 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
 
     @Override
     public void open(Configuration parameters) throws Exception {
+        int indexOfSubtask = this.getRuntimeContext().getIndexOfThisSubtask();
         // TODO improve segment uploader to use in-memory buffer / tar
-        _segmentWriter = new FlinkSegmentWriter(this.getRuntimeContext().getIndexOfThisSubtask());
+        _segmentWriter = new FlinkSegmentWriter(indexOfSubtask);
         _segmentWriter.init(tableConfig, schema);
         // TODO improve segment uploader to take in-memory tar
         // TODO launch segment uploader as separate thread for uploading (non-blocking?)
-        _segmentUploader = new SegmentUploaderDefault();
+        _segmentUploader = new FlinkSegmentUploader(indexOfSubtask);
         _segmentUploader.init(tableConfig);
     }
 

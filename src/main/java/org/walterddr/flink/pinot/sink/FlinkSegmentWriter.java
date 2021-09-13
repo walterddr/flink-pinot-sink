@@ -62,10 +62,10 @@ import org.slf4j.LoggerFactory;
 @NotThreadSafe
 public class FlinkSegmentWriter implements SegmentWriter {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(org.apache.pinot.plugin.segmentwriter.filebased.FileBasedSegmentWriter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkSegmentWriter.class);
     private static final FileFormat BUFFER_FILE_FORMAT = FileFormat.AVRO;
 
-    private final int indexOfSubtask;
+    private final int _indexOfSubtask;
 
     private TableConfig _tableConfig;
     private String _tableNameWithType;
@@ -78,21 +78,22 @@ public class FlinkSegmentWriter implements SegmentWriter {
 
     private File _stagingDir;
     private File _bufferFile;
+    private int _rowCount;
 
     private org.apache.avro.Schema _avroSchema;
     private DataFileWriter<GenericData.Record> _recordWriter;
     private GenericData.Record _reusableRecord;
 
     public FlinkSegmentWriter(int indexOfSubtask) {
-        this.indexOfSubtask = indexOfSubtask;
+        this._indexOfSubtask = indexOfSubtask;
     }
 
     @Override
     public void init(TableConfig tableConfig, Schema schema)
             throws Exception {
+        _rowCount = 0;
         _tableConfig = tableConfig;
-        _tableNameWithType = _tableConfig.getTableName() + "_" + indexOfSubtask;
-
+        _tableNameWithType = _tableConfig.getTableName();
         Preconditions.checkState(
                 _tableConfig.getIngestionConfig() != null && _tableConfig.getIngestionConfig().getBatchIngestionConfig() != null
                         && CollectionUtils
@@ -102,7 +103,15 @@ public class FlinkSegmentWriter implements SegmentWriter {
         _batchIngestionConfig = _tableConfig.getIngestionConfig().getBatchIngestionConfig();
         Preconditions.checkState(_batchIngestionConfig.getBatchConfigMaps().size() == 1,
                 "batchConfigMaps must contain only 1 BatchConfig for table: %s", _tableNameWithType);
-        _batchConfig = new BatchConfig(_tableNameWithType, _batchIngestionConfig.getBatchConfigMaps().get(0));
+
+        Map<String, String> batchConfigMap = _batchIngestionConfig.getBatchConfigMaps().get(0);
+        String segmentNamePostfixProp = String.format("%s.%s", BatchConfigProperties.SEGMENT_NAME_GENERATOR_PROP_PREFIX,
+            BatchConfigProperties.SEGMENT_NAME_POSTFIX);
+        String segmentSuffix = batchConfigMap.get(segmentNamePostfixProp);
+        segmentSuffix = segmentSuffix == null ? String.valueOf(_indexOfSubtask) : segmentSuffix + "_" + _indexOfSubtask;
+        batchConfigMap.put(segmentNamePostfixProp, segmentSuffix);
+
+        _batchConfig = new BatchConfig(_tableNameWithType, batchConfigMap);
 
         Preconditions.checkState(StringUtils.isNotBlank(_batchConfig.getOutputDirURI()),
                 "Must provide: %s in batchConfigs for table: %s", BatchConfigProperties.OUTPUT_DIR_URI, _tableNameWithType);
@@ -116,8 +125,8 @@ public class FlinkSegmentWriter implements SegmentWriter {
         _reusableRecord = new GenericData.Record(_avroSchema);
 
         // Create tmp dir
-        _stagingDir = new File(FileUtils.getTempDirectory(),
-                String.format("segment_writer_staging_%s_%d", _tableNameWithType, System.currentTimeMillis()));
+        _stagingDir = new File(FileUtils.getTempDirectory(), String.format(
+            "segment_writer_staging_%s_%d_%d", _tableNameWithType, _indexOfSubtask, System.currentTimeMillis()));
         Preconditions.checkState(_stagingDir.mkdirs(), "Failed to create staging dir: %s", _stagingDir.getAbsolutePath());
 
         // Create buffer file
@@ -125,12 +134,14 @@ public class FlinkSegmentWriter implements SegmentWriter {
         Preconditions.checkState(bufferDir.mkdirs(), "Failed to create buffer_dir: %s", bufferDir.getAbsolutePath());
         _bufferFile = new File(bufferDir, "buffer_file");
         resetBuffer();
-        LOGGER.info("Initialized {} for table: {}", org.apache.pinot.plugin.segmentwriter.filebased.FileBasedSegmentWriter.class.getName(), _tableNameWithType);
+
+        LOGGER.info("Initialized {} for table: {}", this.getClass().getName(), _tableNameWithType);
     }
 
     private void resetBuffer()
             throws IOException {
         FileUtils.deleteQuietly(_bufferFile);
+        _rowCount = 0;
         _recordWriter = new DataFileWriter<>(new GenericDatumWriter<>(_avroSchema));
         _recordWriter.create(_avroSchema, _bufferFile);
     }
@@ -140,6 +151,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
             throws IOException {
         GenericRow transform = _recordTransformer.transform(row);
         SegmentProcessorAvroUtils.convertGenericRowToAvroRecord(transform, _reusableRecord, _fieldsToRead);
+        _rowCount++;
         _recordWriter.append(_reusableRecord);
     }
 
@@ -164,7 +176,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
     public URI flush()
             throws IOException {
 
-        LOGGER.info("Beginning flush for table: {}", _tableNameWithType);
+        LOGGER.info("Beginning flush for table: {} with {} records", _tableNameWithType, _rowCount);
         _recordWriter.close();
 
         // Create temp dir for flush
@@ -191,10 +203,10 @@ public class FlinkSegmentWriter implements SegmentWriter {
 
             // Tar segment
             File segmentTarFile = new File(_outputDirURI,
-                    String.format("%s_%d%s", segmentName, indexOfSubtask, Constants.TAR_GZ_FILE_EXT));
+                    String.format("%s_%d%s", segmentName, _indexOfSubtask, Constants.TAR_GZ_FILE_EXT));
             if (!_batchConfig.isOverwriteOutput() && segmentTarFile.exists()) {
                 segmentTarFile = new File(_outputDirURI,
-                        String.format("%s_%d_%d%s", segmentName, indexOfSubtask, System.currentTimeMillis(), Constants.TAR_GZ_FILE_EXT));
+                        String.format("%s_%d_%d%s", segmentName, _indexOfSubtask, System.currentTimeMillis(), Constants.TAR_GZ_FILE_EXT));
             }
             TarGzCompressionUtils.createTarGzFile(new File(segmentDir, segmentName), segmentTarFile);
             LOGGER.info("Created segment tar: {} for segment: {} of table: {}", segmentTarFile.getAbsolutePath(), segmentName,
@@ -215,7 +227,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
     @Override
     public void close()
             throws IOException {
-        LOGGER.info("Closing {} for table: {}", org.apache.pinot.plugin.segmentwriter.filebased.FileBasedSegmentWriter.class.getName(), _tableNameWithType);
+        LOGGER.info("Closing {} for table: {}", this.getClass().getName(), _tableNameWithType);
         _recordWriter.close();
         FileUtils.deleteQuietly(_stagingDir);
     }

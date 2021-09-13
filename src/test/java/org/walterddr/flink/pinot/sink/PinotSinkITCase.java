@@ -32,8 +32,10 @@ import org.apache.pinot.spi.ingestion.batch.BatchConfigProperties;
 import org.apache.pinot.spi.utils.JsonUtils;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.apache.pinot.util.TestUtils;
+import org.aspectj.lang.annotation.After;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import org.walterddr.flink.pinot.common.PinotRowRecordConverter;
@@ -95,14 +97,15 @@ public class PinotSinkITCase extends PinotTestBase {
         ));
         execEnv.execute();
         Assert.assertEquals(getNumSegments(), 1);
-        Assert.assertEquals(getNumDocsInLatestSegment(), 4);
+        Assert.assertEquals(getTotalNumDocs(), 6);
+        dropTable();
     }
 
     @Test
     public void testPinotSinkParallelWrite() throws Exception {
         StreamExecutionEnvironment execEnv = StreamExecutionEnvironment.getExecutionEnvironment();
         execEnv.setParallelism(2);
-        DataStream<Row> srcDs = execEnv.fromCollection(testData).returns(testTypeInfo);
+        DataStream<Row> srcDs = execEnv.fromCollection(testData).returns(testTypeInfo).keyBy(r -> r.getField(0));
 
         TableConfig tableConfig = createOfflineTableConfig();
         addTableConfig(tableConfig);
@@ -113,6 +116,13 @@ public class PinotSinkITCase extends PinotTestBase {
         ));
         execEnv.execute();
         Assert.assertEquals(getNumSegments(), 2);
+        Assert.assertEquals(getTotalNumDocs(), 6);
+        dropTable();
+    }
+
+    private void dropTable() throws IOException {
+        String tableNameWithType = TableNameBuilder.forType(TableType.OFFLINE).tableNameWithType(getTableName());
+        dropOfflineTable(tableNameWithType);
     }
 
     private int getNumSegments()
@@ -124,18 +134,21 @@ public class PinotSinkITCase extends PinotTestBase {
         return array.get(0).get("OFFLINE").size();
     }
 
-    private int getNumDocsInLatestSegment()
+    private int getTotalNumDocs()
             throws IOException {
         String tableNameWithType = TableNameBuilder.forType(TableType.OFFLINE).tableNameWithType(getTableName());
         String jsonOutputStr = sendGetRequest(_controllerRequestURLBuilder.
                 forSegmentListAPIWithTableType(tableNameWithType, TableType.OFFLINE.toString()));
         JsonNode array = JsonUtils.stringToJsonNode(jsonOutputStr);
         JsonNode segments = array.get(0).get("OFFLINE");
-        String segmentName = segments.get(segments.size() - 1).asText();
-
-        jsonOutputStr = sendGetRequest(_controllerRequestURLBuilder.
+        int totalDocCount = 0;
+        for (int i = 0; i < segments.size(); ++i) {
+            String segmentName = segments.get(i).asText();
+            jsonOutputStr = sendGetRequest(_controllerRequestURLBuilder.
                 forSegmentMetadata(tableNameWithType, segmentName));
-        JsonNode metadata = JsonUtils.stringToJsonNode(jsonOutputStr);
-        return metadata.get("segment.total.docs").asInt();
+            JsonNode metadata = JsonUtils.stringToJsonNode(jsonOutputStr);
+            totalDocCount += metadata.get("segment.total.docs").asInt();
+        }
+        return totalDocCount;
     }
 }
