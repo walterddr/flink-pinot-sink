@@ -104,6 +104,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
         Preconditions.checkState(_batchIngestionConfig.getBatchConfigMaps().size() == 1,
                 "batchConfigMaps must contain only 1 BatchConfig for table: %s", _tableNameWithType);
 
+        // TODO config map needs to be overwritten for subtask info, here we do it via segment postfix override.
         Map<String, String> batchConfigMap = _batchIngestionConfig.getBatchConfigMaps().get(0);
         String segmentNamePostfixProp = String.format("%s.%s", BatchConfigProperties.SEGMENT_NAME_GENERATOR_PROP_PREFIX,
             BatchConfigProperties.SEGMENT_NAME_POSTFIX);
@@ -125,6 +126,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
         _reusableRecord = new GenericData.Record(_avroSchema);
 
         // Create tmp dir
+        // TODO staging Dir also need to be subtask separated otherwise there will be write conflict.
         _stagingDir = new File(FileUtils.getTempDirectory(), String.format(
             "segment_writer_staging_%s_%d_%d", _tableNameWithType, _indexOfSubtask, System.currentTimeMillis()));
         Preconditions.checkState(_stagingDir.mkdirs(), "Failed to create staging dir: %s", _stagingDir.getAbsolutePath());

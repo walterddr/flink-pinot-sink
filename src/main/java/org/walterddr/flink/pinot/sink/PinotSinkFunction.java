@@ -70,7 +70,7 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
     @Override
     public void open(Configuration parameters) throws Exception {
         int indexOfSubtask = this.getRuntimeContext().getIndexOfThisSubtask();
-        // TODO improve segment uploader to use in-memory buffer / tar
+        // TODO improve segment uploader to use in-memory buffer then flush to tar file.
         _segmentWriter = new FlinkSegmentWriter(indexOfSubtask);
         _segmentWriter.init(tableConfig, schema);
         // TODO improve segment uploader to take in-memory tar
@@ -81,6 +81,7 @@ public class PinotSinkFunction<T> extends RichSinkFunction<T>
 
     @Override
     public void close() throws Exception {
+        // TODO: currently only close on flush, need to implement flush on segment-size limit
         try {
             flush();
         } catch (Exception e) {
