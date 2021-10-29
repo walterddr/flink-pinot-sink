@@ -21,15 +21,6 @@ package org.walterddr.flink.pinot.sink;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import javax.annotation.concurrent.NotThreadSafe;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -50,17 +41,28 @@ import org.apache.pinot.spi.data.readers.GenericRow;
 import org.apache.pinot.spi.ingestion.batch.BatchConfig;
 import org.apache.pinot.spi.ingestion.batch.BatchConfigProperties;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
+import org.apache.pinot.spi.ingestion.segment.uploader.SegmentUploader;
 import org.apache.pinot.spi.ingestion.segment.writer.SegmentWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.concurrent.NotThreadSafe;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 
 /**
- * A {@link SegmentWriter} implementation that uses a buffer.
+ * A {@link SegmentUploader} implementation that uses a buffer.
  * The {@link GenericRow} are written to the buffer as AVRO records.
  */
 @NotThreadSafe
-public class FlinkSegmentWriter implements SegmentWriter {
+public class FlinkSegmentUploader implements SegmentUploader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(org.apache.pinot.plugin.segmentwriter.filebased.FileBasedSegmentWriter.class);
     private static final FileFormat BUFFER_FILE_FORMAT = FileFormat.AVRO;
@@ -83,7 +85,7 @@ public class FlinkSegmentWriter implements SegmentWriter {
     private DataFileWriter<GenericData.Record> _recordWriter;
     private GenericData.Record _reusableRecord;
 
-    public FlinkSegmentWriter(int indexOfSubtask) {
+    public FlinkSegmentUploader(int indexOfSubtask) {
         this.indexOfSubtask = indexOfSubtask;
     }
 
